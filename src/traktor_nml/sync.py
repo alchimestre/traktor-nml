@@ -72,6 +72,9 @@ class Plan:
     where: Path
     volume: str
     entries: list[ET.Element] = field(default_factory=list, repr=False)
+    # The document's root as parsed, so a purge can count the playlist references to a dead entry without
+    # reading the file a second time.
+    root: ET.Element | None = field(default=None, repr=False)
     total: int = 0
     kept: int = 0
     repoints: list[Repoint] = field(default_factory=list)
@@ -158,8 +161,8 @@ def plan(config: Config) -> Plan:
     the same track into the collection twice.
     """
     where = nml.find(config.collection)
-    _text, entries = nml.read(where)
-    found = Plan(where=where, volume=nml.volume_of(entries), entries=entries, total=len(entries))
+    _text, root, entries = nml.read(where)
+    found = Plan(where=where, volume=nml.volume_of(entries), entries=entries, root=root, total=len(entries))
 
     claimed = {path_key(location(entry)) for entry in entries}
     files = lane(config)
@@ -379,5 +382,149 @@ def status(config: Config) -> str:
         f"{found.total} entries · {found.kept} whose file is there · {len(lane(config))} files in the lanes\n"
         f"{len(found.repoints)} to repoint · {len(found.additions)} to add · "
         f"{len(found.superseded)} duplicate · {len(found.missing)} missing · "
-        f"{len(found.unsupported)} it cannot place"
+        f"{len(found.unsupported)} it cannot place · {len(removals(config))} to purge"
     )
+
+
+# --- taking the incoherent entries out --------------------------------------------------------------------
+
+
+@dataclass
+class Removal:
+    """One entry a purge would take out of the collection, and what goes with it."""
+
+    entry: ET.Element
+    was: Path
+    why: str
+    playlist_keys: int = 0
+    held_by: Path | None = None
+    cues: int = 0
+    played: int = 0
+
+    def cost(self) -> str:
+        """What removing this entry costs, in the words the report uses — nothing, usually."""
+        parts: list[str] = []
+        if self.playlist_keys and self.held_by is not None:
+            parts.append(f"{self.playlist_keys} playlist "
+                         f"{'entry' if self.playlist_keys == 1 else 'entries'} moved to "
+                         f"{self.held_by.name}")
+        elif self.playlist_keys:
+            parts.append(f"{self.playlist_keys} playlist "
+                         f"{'entry' if self.playlist_keys == 1 else 'entries'} dropped")
+        if self.cues:
+            parts.append(f"{self.cues} {'cue' if self.cues == 1 else 'cues'}")
+        if self.played:
+            parts.append(f"played {self.played}")
+        return ", ".join(parts)
+
+    def line(self) -> str:
+        cost = self.cost()
+        return f"remove   {self.was.name} — {self.why}" + (f"  ({cost})" if cost else "")
+
+
+def _playlist_keys(root: ET.Element | None) -> dict[str, int]:
+    """How many playlist entries reference each track key."""
+    counted: dict[str, int] = {}
+    if root is None:
+        return counted
+    playlists = root.find("PLAYLISTS")
+    if playlists is None:
+        return counted
+    for node in playlists.findall(".//PRIMARYKEY"):
+        key = node.get("KEY")
+        if key:
+            counted[key] = counted.get(key, 0) + 1
+    return counted
+
+
+def removals(config: Config) -> list[Removal]:
+    """Every entry whose file is gone, with what removing it would cost and where its references would go.
+
+    A collection is an index of files that exist, and an entry pointing at nothing is residue: Vincent's word is
+    that a missing file is incoherence rather than a detached drive. This says what a purge would take out
+    without writing anything — which is what the `purge` verb shows before `--apply` is given.
+    """
+    return _removals(plan(config))
+
+
+def _removals(found: Plan) -> list[Removal]:
+    """The same, off a plan already read — so that a purge writes from the very elements it decided on."""
+    by_path = {location(entry): entry for entry in found.entries}
+    surviving = {identity(entry): location(entry) for entry in found.entries if location(entry).is_file()}
+    keys = _playlist_keys(found.root)
+
+    out: list[Removal] = []
+    for one in found.gone():
+        entry = by_path.get(one.was)
+        if entry is None:
+            continue
+        info = entry.find("INFO")
+        out.append(Removal(
+            entry=entry,
+            was=one.was,
+            why=one.why,
+            playlist_keys=keys.get(nml.key_of(one.was, found.volume), 0),
+            held_by=surviving.get(identity(entry)) if (entry.get("TITLE") or "") else None,
+            cues=sum(1 for cue in entry.findall("CUE_V2") if cue.get("HOTCUE", "-1") != "-1"),
+            played=int((info.get("PLAYCOUNT") if info is not None else None) or 0),
+        ))
+    return out
+
+
+def _drop_playlist_entries(text: str, key: str) -> str:
+    """Take the playlist entries that reference a key out of the document entirely."""
+    marker = f'KEY="{key}"'
+    while (at := text.find(marker)) >= 0:
+        start, end = text.rfind("<ENTRY", 0, at), text.find("</ENTRY>", at)
+        if start < 0 or end < 0:
+            break
+        text = text[:start] + text[end + len("</ENTRY>"):]
+    return text
+
+
+def purge(config: Config, *, apply: bool = False, backup: bool = True) -> tuple[list[Removal], Path | None]:
+    """Take every entry whose file is gone out of the collection: one backup, one edit, nothing else touched.
+
+    What referenced a removed entry is **moved to the entry that keeps the track** where the collection holds it
+    elsewhere, and dropped where nothing does — a playlist is a list of what he wants to play, and the track is
+    either in the collection or it is not. The entries it does not remove are left byte for byte, exactly as
+    `write` leaves them, and the count on the COLLECTION element follows.
+    """
+    found = plan(config)
+    found_removals = _removals(found)
+    if not apply or not found_removals:
+        return found_removals, None
+
+    if nml.running():
+        raise TraktorRunning(
+            "Traktor is running, and it rewrites the collection as it exits — over anything written while it "
+            "was up: close it, then run this again"
+        )
+    where = found.where
+    text = where.read_text(encoding="utf-8")
+    spans = nml.entry_spans(text, found.entries)
+
+    cuts: list[tuple[int, int]] = []
+    for removal in found_removals:
+        span = spans.get(id(removal.entry))
+        if span is None:
+            raise nml.Changed(f"{where} is not the collection that was read: {removal.was.name} is not in it")
+        cuts.append(span)
+    for start, end in sorted(cuts, reverse=True):
+        text = text[:start] + text[end:]
+
+    for removal in found_removals:
+        was = nml.key_of(removal.was, found.volume)
+        if removal.held_by is not None:
+            text = text.replace(f'KEY="{was}"', f'KEY="{nml.key_of(removal.held_by, found.volume)}"')
+        else:
+            text = _drop_playlist_entries(text, was)
+
+    counted = f'<COLLECTION ENTRIES="{found.total}">'
+    if counted not in text:
+        raise nml.Changed(f"{where} says something other than {counted}")
+    text = text.replace(counted, f'<COLLECTION ENTRIES="{found.total - len(found_removals)}">', 1)
+
+    written = nml.backup(where) if backup else None
+    nml.replace(where, text)
+    return found_removals, written

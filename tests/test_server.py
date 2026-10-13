@@ -20,7 +20,7 @@ def call(server, name: str) -> str:
 def test_the_server_offers_exactly_the_three_verbs(tmp_path):
     settings = config_for(tmp_path, entries="")
     server = server_module.build(settings)
-    assert {tool.name for tool in asyncio.run(server.list_tools())} == {"status", "plan", "apply"}
+    assert {tool.name for tool in asyncio.run(server.list_tools())} == {"status", "plan", "apply", "purge"}
 
 
 def test_plan_reads_and_apply_writes_through_the_server(tmp_path):
