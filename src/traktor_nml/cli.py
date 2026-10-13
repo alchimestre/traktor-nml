@@ -27,6 +27,9 @@ def _build_parser() -> argparse.ArgumentParser:
     commands.add_parser("plan", help="what it would do, writing nothing (the default)")
     commands.add_parser("status", help="where the collection and the lanes stand")
     commands.add_parser("apply", help="one backup, one write")
+    pure = commands.add_parser(
+        "purge", help="take out the entries whose file is gone (dry run unless --apply is given)")
+    pure.add_argument("--apply", action="store_true", help="write it; without this nothing is removed")
     return parser
 
 
@@ -64,12 +67,32 @@ def _apply(config: config_module.Config, args: argparse.Namespace) -> int:
     return 0
 
 
+def _purge(config: config_module.Config, args: argparse.Namespace) -> int:
+    """The entries whose file is gone, out — a dry run until `--apply` is given."""
+    found, written = sync.purge(config, apply=args.apply, backup=not args.no_backup)
+    if not found:
+        print("nothing to purge: every entry points at a file that is there")
+        return 0
+    for removal in found:
+        print(f"  {removal.line()}")
+    print()
+    if written is None:
+        print(f"{len(found)} to remove — nothing has been written yet: "
+              "traktor-nml purge --apply takes them out")
+        return 0
+    print(f"{len(found)} removed · backed up to {written.name}")
+    print("the History files are untouched")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     config = config_module.load(args.config)
     try:
         if args.command == "status":
             return _status(config)
+        if args.command == "purge":
+            return _purge(config, args)
         if args.command == "apply":
             return _apply(config, args)
         return _plan(config)

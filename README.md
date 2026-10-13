@@ -10,11 +10,12 @@ it, adds the tracks the lanes hold that the collection has never seen, and repor
 ```sh
 traktor-nml            # what it would do, writing nothing — the default verb
 traktor-nml status     # one paragraph: entries, lanes, and what a run would do
-traktor-nml apply      # one backup, one write
+traktor-nml apply      # one backup, one write, entries repointed and added
+traktor-nml purge      # the entries whose file is gone, out — dry run until --apply
 ```
 
-A session can do the same three things over MCP (`traktor-nml-mcp`): the tools are `plan`, `status` and
-`apply`, and each returns the text the command line prints.
+A session can do the same over MCP (`traktor-nml-mcp`): the tools are `plan`, `status`, `apply` and `purge`
+(the last one dry unless its `apply` argument is true), and each returns the text the command line prints.
 
 ## What it decides, per entry
 
@@ -23,7 +24,12 @@ A session can do the same three things over MCP (`traktor-nml-mcp`): the tools a
 | **kept** | the file is there. Untouched — the write is a text edit, not a re-serialize, so a diff of the collection is the list of what changed |
 | **repointed** | the file is gone and a replacement is on disk. Established by the run that made it (`replaces` → `local_path` in music-agent's job state, read as data) and then by the name it carries (the same stem, folded, with a trailing *code* dropped) |
 | **added** | a lane file no entry points at, written in the shape Traktor itself writes for an importer's work |
-| **gone** | the file is not there and nothing replaced it. Reported, **never removed**: it may be a detached drive, or a duplicate the collection holds elsewhere |
+| **gone** | the file is not there and nothing replaced it. Reported by `plan`/`apply`, which never remove anything; `purge` is the verb that takes it out, dry run first |
+
+`apply` never removes an entry; `purge` is the one verb that does, and it says what each removal costs before it
+writes — a playlist line moved to the entry that keeps the track, or dropped when nothing does. Vincent's word,
+2026-10-13: *there is no detached drive*, so an entry pointing at nothing is residue rather than something that
+might come back.
 
 A repointed entry keeps everything the app stored about the **track** — cues, play count, last played, import
 date, artwork, the album, and its playlist membership — and gives up what described the old file's **audio**:

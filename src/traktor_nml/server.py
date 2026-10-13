@@ -57,6 +57,24 @@ def build(config: config_module.Config | None = None) -> MCPServer:
         return "\n".join([header, *found.lines(), "", found.report()])
 
     @server.tool()
+    def purge(apply: bool = False) -> str:
+        """Take out every entry in the collection whose file is gone — residue, since a collection is an index
+        of files that exist and Vincent has said there is no detached drive to come back. A playlist reference
+        to a removed entry is moved to the entry that keeps the track, or dropped when nothing does; history,
+        cues and play counts go with the entry and are reported. **Dry run unless apply is true.** Refuses while
+        Traktor is running, and takes one backup beside the collection before it writes."""
+        removed, written = sync.purge(settings, apply=apply)
+        if not removed:
+            return "nothing to purge: every entry points at a file that is there"
+        lines = [removal.line() for removal in removed]
+        if written is None:
+            return "\n".join([*lines, "",
+                              (f"{len(removed)} to remove — nothing has been written yet; "
+                               "call again with apply=true to take them out")])
+        return "\n".join([*lines, "",
+                          f"{len(removed)} removed · backed up to {written.name} in {written.parent}"])
+
+    @server.tool()
     def apply() -> str:
         """Write the plan into the collection: one backup beside it, then one edit that leaves every entry
         nobody is repointing byte for byte as Traktor wrote it. Refuses while Traktor is running. Returns what

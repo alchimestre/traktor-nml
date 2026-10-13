@@ -164,14 +164,15 @@ def find(pattern: Path) -> Path:
     return found[0]
 
 
-def read(where: Path) -> tuple[str, list[ET.Element]]:
-    """The file's text and its entries, parsed once so the write edits the very elements that were planned."""
+def read(where: Path) -> tuple[str, ET.Element, list[ET.Element]]:
+    """The file's text, its root and its entries, parsed once so a write edits the very elements that were
+    planned, and so the playlists and the collection come from the same reading of the file."""
     text = where.read_text(encoding="utf-8")
     root = ET.fromstring(text)
     element = root.find("COLLECTION")
     if element is None:
         raise CollectionMissing(f"{where} holds no COLLECTION — that is not a Traktor collection")
-    return text, element.findall("ENTRY")
+    return text, root, element.findall("ENTRY")
 
 
 def volume_of(entries: list[ET.Element]) -> str:

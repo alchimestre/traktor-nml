@@ -96,14 +96,14 @@ def test_every_entry_traktor_wrote_survives_the_round_trip():
     one that merely parses."""
     where = real_collection()
     text = where.read_text(encoding="utf-8")
-    _text, entries = nml.read(where)
+    _text, _root, entries = nml.read(where)
     assert len(entries) > 1000, "the guard is worthless against an empty collection"
     assert [nml.entry_text(entry) for entry in entries] == entries_of(text)
 
 
 def test_every_location_in_the_real_collection_encodes_back_to_itself():
     """The escaping, checked against every path the app has written rather than the four above."""
-    _text, entries = nml.read(real_collection())
+    _text, _root, entries = nml.read(real_collection())
     seen = 0
     for entry in entries:
         where = entry.find("LOCATION")

@@ -393,6 +393,106 @@ def test_an_open_traktor_is_refused_and_the_collection_left_alone(tmp_path, monk
     assert config.collection.read_bytes() == before
 
 
+# --- taking the incoherent entries out --------------------------------------------------------------------
+
+
+def test_a_purge_takes_out_the_entries_whose_file_is_gone(tmp_path):
+    """A collection is an index of files that exist: an entry pointing at nothing is residue, and Vincent's word
+    is that there is no detached drive for it to come back from."""
+    config = setup(tmp_path, entries=entry_for(lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy"),
+                                                playcount="3")
+                   + entry_for(lane(tmp_path, "Kiasmas - Blurred.aiff")))
+    moved(tmp_path, "Kiasmas - Blurred.aiff")
+    was = lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy")
+
+    found, _nothing = sync.purge(config)
+    assert [one.was for one in found] == [was]
+    before = config.collection.read_bytes()
+    assert b'PLAYCOUNT="3"' in before, "the dead entry carries a play count, and it goes with it"
+
+    removed, written = sync.purge(config, apply=True)
+    after = config.collection.read_text(encoding="utf-8")
+    assert written is not None and written.is_file()
+    assert [one.was for one in removed] == [was]
+    assert '<COLLECTION ENTRIES="1">' in after
+    assert len(parsed(config.collection)) == 1
+    assert 'PLAYCOUNT="3"' not in after
+    assert an_entry(config.collection, "Blurred").find("INFO").get("PLAYCOUNT") is None
+
+
+def test_a_purge_moves_the_playlist_entry_to_the_row_that_keeps_the_track(tmp_path):
+    """The dead one is a duplicate, so the track itself stays — the playlist keeps it, pointing at the entry
+    whose file is there, rather than losing the line."""
+    was = lane(tmp_path, "Conntex - Conntex - Kokopelli [Free DL].m4a", where="lossy")
+    good = lane(tmp_path, "Conntex - Kokopelli.aiff")
+    config = setup(tmp_path, entries=entry_for(good, title="Kokopelli", artist="Conntex")
+                   + entry_for(was, title="Kokopelli", artist="Conntex"))
+    moved(tmp_path, "Conntex - Kokopelli.aiff")
+    good_key, dead_key = f"{VOLUME}{nml.encode(good)}", f"{VOLUME}{nml.encode(was)}"
+    text = config.collection.read_text(encoding="utf-8")
+    text = text.replace(
+        f'<ENTRY><PRIMARYKEY TYPE="TRACK" KEY="{good_key}"></PRIMARYKEY></ENTRY>',
+        f'<ENTRY><PRIMARYKEY TYPE="TRACK" KEY="{good_key}"></PRIMARYKEY></ENTRY>'
+        f'<ENTRY><PRIMARYKEY TYPE="TRACK" KEY="{dead_key}"></PRIMARYKEY></ENTRY>')
+    assert dead_key in text, "the fixture has to reference the dead entry for this to test anything"
+    config.collection.write_text(text, encoding="utf-8")
+
+    removed, _written = sync.purge(config, apply=True)
+    assert [one.was for one in removed] == [was]
+    assert removed[0].held_by == good
+    assert "moved to" in removed[0].cost()
+    after = config.collection.read_text(encoding="utf-8")
+    assert dead_key not in after
+    assert after.count(f'KEY="{good_key}"') == 2, "the playlist keeps the track, once"
+
+
+def test_a_purge_drops_a_playlist_entry_nothing_else_holds(tmp_path):
+    """The three recordings are in his `_RECORDINGS` playlist and nowhere else, and their files are gone: the
+    line goes with the entry rather than dangling."""
+    was = Path("/Users/vincent/Music/Traktor/Recordings/Recording_2026-09-03_14h01m48s.wav")
+    config = setup(tmp_path, entries=entry_for(was, title="Recording", cues=""))
+    dead_key = f"{VOLUME}{nml.encode(was)}"
+    assert dead_key in config.collection.read_text(encoding="utf-8"), "and the fixture references it"
+
+    removed, _written = sync.purge(config, apply=True)
+    assert removed[0].held_by is None
+    assert removed[0].playlist_keys == 1
+    assert "dropped" in removed[0].cost()
+    after = config.collection.read_text(encoding="utf-8")
+    assert dead_key not in after
+    assert after.count("<PRIMARYKEY") == 0, "the playlist line went with it"
+
+
+def test_a_purge_writes_nothing_without_apply(tmp_path):
+    config = setup(tmp_path, entries=entry_for(lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy"))
+                   + entry_for(lane(tmp_path, "Kiasmas - Blurred.aiff")))
+    moved(tmp_path, "Kiasmas - Blurred.aiff")
+    before = config.collection.read_bytes()
+
+    found, written = sync.purge(config)
+    assert found and written is None
+    assert config.collection.read_bytes() == before
+
+
+def test_a_purge_of_a_settled_collection_writes_nothing(tmp_path):
+    config = setup(tmp_path, entries=entry_for(lane(tmp_path, "Kiasmas - Blurred.aiff")))
+    moved(tmp_path, "Kiasmas - Blurred.aiff")
+    before = config.collection.read_bytes()
+    found, written = sync.purge(config, apply=True)
+    assert not found and written is None
+    assert config.collection.read_bytes() == before
+
+
+def test_a_purge_refuses_while_traktor_is_running(tmp_path, monkeypatch):
+    config = setup(tmp_path, entries=entry_for(lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy")))
+    before = config.collection.read_bytes()
+    monkeypatch.setattr(nml, "running", lambda: True)
+
+    with pytest.raises(nml.TraktorRunning):
+        sync.purge(config, apply=True)
+    assert config.collection.read_bytes() == before
+
+
 # --- the file's own numbers and names ---------------------------------------------------------------------
 
 
