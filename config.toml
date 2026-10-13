@@ -1,0 +1,20 @@
+# traktor-nml configuration.
+#
+# Read with the standard library, relative paths resolving against this file's directory, the way
+# music-agent's own config works. Nothing here is a secret.
+
+[paths]
+# Traktor's collection is one XML file, and the directory it sits in carries Traktor's version number
+# (`Traktor 4.5.1`), so this is a pattern: a Traktor upgrade must not need this file edited. The tool
+# refuses rather than guesses if two versions ever match.
+collection = "~/Documents/Native Instruments/Traktor */collection.nml"
+
+# The two directories the pipeline fills. A file in one of them is a track this tool may put into the
+# collection; a file anywhere else is Traktor's own business, and is reported rather than moved.
+lossless = "~/Music/Loseless Tracks"
+lossy    = "~/Music/Losy Tracks"
+
+# music-agent's run state, read as **data**: `<run>/tracks.jsonl` carries one record per track, and a
+# record with `replaces` and `local_path` is the pipeline's own word that one file took another's place.
+# That is the strongest evidence a repoint can have. Without the directory only the name rule applies.
+state = "~/projects/music-agent/.state/jobs"
