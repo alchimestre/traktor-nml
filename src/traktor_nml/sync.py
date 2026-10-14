@@ -30,7 +30,7 @@ from .files import (
 )
 from .nml import TraktorRunning, location
 
-# The cue Traktor computes from the audio rather than one Vincent placed: an auto grid is worth nothing on a
+# The cue Traktor computes from the audio rather than one placed by hand: an auto grid is worth nothing on a
 # file whose length the app has not measured.
 AUTO_GRID = "4"
 
@@ -236,8 +236,8 @@ def numbers(info: ET.Element, facts) -> None:
 def released(value: str) -> str:
     """A release date in the shape Traktor writes, or nothing at all.
 
-    All 104 dates in his collection are a full `2024/12/4`, so a tag carrying only a year — or the `20211124`
-    blob one of his files holds — is either filled out from the digits it does have or left off. Leaving it off
+    All 104 dates in the collection are a full `2024/12/4`, so a tag carrying only a year — or the `20211124`
+    blob one of the files holds — is either filled out from the digits it does have or left off. Leaving it off
     loses a year from a column; writing a shape the app never writes puts a string into its collection that
     nothing has ever read.
     """
@@ -440,7 +440,7 @@ def _playlist_keys(root: ET.Element | None) -> dict[str, int]:
 def removals(config: Config) -> list[Removal]:
     """Every entry whose file is gone, with what removing it would cost and where its references would go.
 
-    A collection is an index of files that exist, and an entry pointing at nothing is residue: Vincent's word is
+    A collection is an index of files that exist, and an entry pointing at nothing is residue: the user's word is
     that a missing file is incoherence rather than a detached drive. This says what a purge would take out
     without writing anything — which is what the `purge` verb shows before `--apply` is given.
     """
@@ -486,7 +486,7 @@ def purge(config: Config, *, apply: bool = False, backup: bool = True) -> tuple[
     """Take every entry whose file is gone out of the collection: one backup, one edit, nothing else touched.
 
     What referenced a removed entry is **moved to the entry that keeps the track** where the collection holds it
-    elsewhere, and dropped where nothing does — a playlist is a list of what he wants to play, and the track is
+    elsewhere, and dropped where nothing does — a playlist is a list of what the user wants to play, and the track is
     either in the collection or it is not. The entries it does not remove are left byte for byte, exactly as
     `write` leaves them, and the count on the COLLECTION element follows.
     """

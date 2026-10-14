@@ -4,3 +4,7 @@ __pycache__/
 .ruff_cache/
 *.pyc
 collection.nml.*.backup
+
+# This machine's configuration and working notes: kept on disk, never published.
+config.toml
+AGENTS.md
