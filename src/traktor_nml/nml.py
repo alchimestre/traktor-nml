@@ -20,7 +20,7 @@ from pathlib import Path
 # The app's own process name, which its bundle declares as `CFBundleExecutable`.
 PROCESS = "Traktor Pro 4"
 
-# `\`/` is written `/:` and a literal `:` is written `//`. One of his entries is written
+# `\`/` is written `/:` and a literal `:` is written `//`. One entry is written
 # `Le Piarre // Pica Pica Molinièra.mp3` in its LOCATION while the file on disk carries the colon and the
 # entry's own TITLE spells it `:`, and all 24 of Traktor's own backups agree.
 ESCAPES = {"/": "/:", ":": "//"}

@@ -1,7 +1,7 @@
 """The reconciliation: what it decides, what it writes, and what it refuses.
 
 Everything here runs over a throwaway collection, two throwaway lanes and a throwaway run state, so the only
-tests that touch Vincent's own file are the two in `test_nml.py`.
+tests that touch the real collection are the two in `test_nml.py`.
 """
 
 from __future__ import annotations
@@ -193,7 +193,7 @@ def test_an_entry_whose_file_was_never_in_a_lane_reads_as_its_own(tmp_path):
     found = sync.plan(config)
     assert [one.was for one in found.missing] == [was]
     assert sync.OUTSIDE in found.missing[0].why
-    assert "outside" in found.missing[0].why, "the directory is what tells him which file this is"
+    assert "outside" in found.missing[0].why, "the directory is what tells which file this is"
 
     _, written = sync.run(config, apply=True)
     assert written is None, "a plan with nothing to repoint or add must not touch the file"
@@ -223,7 +223,7 @@ def test_two_files_carrying_one_name_are_never_guessed_between(tmp_path):
 
 def test_a_file_that_is_not_audio_is_never_pointed_at(tmp_path):
     """A lane can hold something that is not a track at all: a test fixture once left a five-byte `audio`
-    placeholder in Vincent's lossless lane, and pointing Traktor at it hands the app a file with nothing to
+    placeholder in the lossless lane, and pointing Traktor at it hands the app a file with nothing to
     analyze. It is reported instead."""
     config = setup(tmp_path, entries="")
     (config.lossless / "Kiasmos - Blurred.aiff").write_bytes(b"audio")
@@ -258,7 +258,7 @@ def test_a_name_traktor_cannot_write_back_is_reported_rather_than_fought_over(tm
     sync.run(config, apply=True)
     assert config.collection.read_bytes() == before, "so the plan is stable rather than oscillating"
 
-    # and the rule must not fire on the names the app demonstrably keeps: the U+06DD in another of his file
+    # and the rule must not fire on the names the app demonstrably keeps: the U+06DD in another of the collection's file
     # names came through Traktor's own rewrite verbatim, and accents, Greek and Turkish are ordinary
     for ordinary in ("Ø [Phase] - Edge Runner (Dub Edit).aiff", "ΑΓΓΕΛΟΣ - Ωδή 4.aiff",
                      "Şatellites - Yok Yok.aiff", "Cocanha - Fòrabanda.aiff", "Rødhåd - Target Line.aiff",
@@ -291,7 +291,7 @@ def test_a_repointed_entry_keeps_the_track_and_gives_up_the_old_files_audio(tmp_
     for name in ("TEMPO", "LOUDNESS", "MUSICAL_KEY"):
         assert entry.find(name) is None
     assert entry.find("INFO").get("FLAGS") is None
-    assert [cue.get("TYPE") for cue in entry.findall("CUE_V2")] == ["0"], "his own cue survives"
+    assert [cue.get("TYPE") for cue in entry.findall("CUE_V2")] == ["0"], "a placed cue survives"
 
     # The numbers are the new file's, in the collection's own units: KiB, bits per second, seconds rounded up.
     info = entry.find("INFO")
@@ -315,9 +315,9 @@ def test_a_repoint_moves_the_playlist_entry_with_it(tmp_path):
 
 
 def test_an_added_entry_is_the_shape_traktor_writes_for_an_imported_file(tmp_path):
-    """The app's own shape for a file whose audio it has not measured — his three recordings are written this
+    """The app's own shape for a file whose audio it has not measured — the recordings in the fixture are written this
     way — and the count on the COLLECTION element, which is what Traktor reads."""
-    config = setup(tmp_path, entries=entry_for(Path("/Users/vincent/Music/Losy Tracks/Old - Song.mp3")))
+    config = setup(tmp_path, entries=entry_for(Path("/Music/Losy Tracks/Old - Song.mp3")))
     now = moved(tmp_path, "Kiasmos - Blurred.aiff")
 
     found, _written = sync.run(config, apply=True)
@@ -335,7 +335,7 @@ def test_an_added_entry_is_the_shape_traktor_writes_for_an_imported_file(tmp_pat
 def test_every_entry_it_is_not_asked_to_touch_keeps_its_own_bytes(tmp_path):
     """The write edits the text rather than re-serializing the document, so a diff of the collection is the
     list of what changed — where re-serializing would re-encode every fingerprint in the file."""
-    keep = Path("/Users/vincent/Music/Losy Tracks/Untouched - Song.mp3")
+    keep = Path("/Music/Losy Tracks/Untouched - Song.mp3")
     was = lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy")
     config = setup(tmp_path, entries=entry_for(keep, title="Song", artist="Untouched")
                    + entry_for(was), run=(was, lane(tmp_path, "Kiasmas - Blurred.aiff")))
@@ -397,7 +397,7 @@ def test_an_open_traktor_is_refused_and_the_collection_left_alone(tmp_path, monk
 
 
 def test_a_purge_takes_out_the_entries_whose_file_is_gone(tmp_path):
-    """A collection is an index of files that exist: an entry pointing at nothing is residue, and Vincent's word
+    """A collection is an index of files that exist: an entry pointing at nothing is residue, and the user's word
     is that there is no detached drive for it to come back from."""
     config = setup(tmp_path, entries=entry_for(lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy"),
                                                 playcount="3")
@@ -447,9 +447,9 @@ def test_a_purge_moves_the_playlist_entry_to_the_row_that_keeps_the_track(tmp_pa
 
 
 def test_a_purge_drops_a_playlist_entry_nothing_else_holds(tmp_path):
-    """The three recordings are in his `_RECORDINGS` playlist and nowhere else, and their files are gone: the
+    """The three recordings are in the `_RECORDINGS` playlist and nowhere else, and their files are gone: the
     line goes with the entry rather than dangling."""
-    was = Path("/Users/vincent/Music/Traktor/Recordings/Recording_2026-09-03_14h01m48s.wav")
+    was = Path("/Music/Traktor/Recordings/Recording_2026-09-03_14h01m48s.wav")
     config = setup(tmp_path, entries=entry_for(was, title="Recording", cues=""))
     dead_key = f"{VOLUME}{nml.encode(was)}"
     assert dead_key in config.collection.read_text(encoding="utf-8"), "and the fixture references it"
@@ -497,7 +497,7 @@ def test_a_purge_refuses_while_traktor_is_running(tmp_path, monkeypatch):
 
 
 def test_the_numbers_are_in_the_collections_own_units(tmp_path):
-    """KiB, bits per second, seconds rounded **up** — measured against his own entries, where a 5,195,526-byte
+    """KiB, bits per second, seconds rounded **up** — measured against the collection's own entries, where a 5,195,526-byte
     mp3 says 5076 and a 127.608162-second file says 128."""
     path = aiff(tmp_path / "tiny.aiff")
     facts = files.facts_of(path)

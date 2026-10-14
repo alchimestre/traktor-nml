@@ -52,7 +52,7 @@ def _code(bracket: str) -> bool:
     enough to be an identifier.
 
     `[LASK005]`, `[EhL-ztDTUYE]` and `[250120]` are codes; `[B Side]` and `[Free DL]` are words. Requiring a
-    digit is not the test — his `EhL-ztDTUYE` has none.
+    digit is not the test — `EhL-ztDTUYE` has none.
     """
     inside = bracket.strip("[]")
     return len(inside) >= 4 and not any(character.isspace() for character in inside)
@@ -85,7 +85,7 @@ def lane(config: Config) -> list[Path]:
 class Facts:
     """What a file's header says, in the units the collection already uses.
 
-    Measured against his own entries rather than assumed: `FILESIZE` is KiB (a 5,195,526-byte mp3 says 5076)
+    Measured against the collection's own entries rather than assumed: `FILESIZE` is KiB (a 5,195,526-byte mp3 says 5076)
     and `PLAYTIME` is the length rounded **up** (127.608162 says 128, and 64.000000 says 64). `BITRATE` is
     bits per second, the AIFFs saying 1411200 — where rekordbox's rows take kbps and bytes, so each collection
     is written the way it reads.
@@ -180,7 +180,7 @@ def readable(path: Path) -> bool:
 # The characters Traktor rewrites when it writes a file name back. Read off the app rather than guessed at
 # broadly: in its backup-and-rewrite cycle at 2026-10-13 16:33 it turned
 # `Kimia Koochakzadeh-Yazdi - \ufeffĀVĀR (feat. Anahita Azimi).m4a` into `… - ?ĀVĀR ….m4a`, while the U+06DD
-# in another of his names (`Four Tet (Wingdings) - …`) came through the same rewrite verbatim and is in the
+# in another of the collection's names (`Four Tet (Wingdings) - …`) came through the same rewrite verbatim and is in the
 # collection now — so "a format character" is too broad a rule, and the byte-order mark is what there is
 # evidence for.
 UNWRITABLE = frozenset({"\ufeff"})
@@ -189,7 +189,7 @@ UNWRITABLE = frozenset({"\ufeff"})
 def unwritable(path: Path) -> str:
     """Why a name cannot be written into the collection, or `""` when it can.
 
-    The offending character is named, because the fix is his — a rename — and a rename is the only thing that
+    The offending character is named, because the fix is the user's — a rename — and a rename is the only thing that
     settles it: this tool writing the name again would be rewritten by Traktor on its next quit, forever.
     """
     for character in path.name:

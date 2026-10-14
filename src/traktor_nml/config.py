@@ -26,11 +26,13 @@ class Config:
         return (self.lossless, self.lossy)
 
 
+# A working layout for someone with neither a config file nor a preference: the collection where Traktor puts
+# it, and three directories of this tool's own. `config.example.toml` documents each one.
 DEFAULTS = Config(
     collection=Path("~/Documents/Native Instruments/Traktor */collection.nml").expanduser(),
-    lossless=Path("~/Music/Loseless Tracks").expanduser(),
-    lossy=Path("~/Music/Losy Tracks").expanduser(),
-    state=Path("~/projects/music-agent/.state/jobs").expanduser(),
+    lossless=Path("~/Music/music-agent/lossless").expanduser(),
+    lossy=Path("~/Music/music-agent/lossy").expanduser(),
+    state=Path("~/Music/music-agent/state").expanduser(),
 )
 
 

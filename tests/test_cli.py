@@ -70,7 +70,7 @@ def test_apply_writes_it_and_names_the_backup(tmp_path, capsys):
 
 
 def test_apply_on_a_settled_collection_says_so(tmp_path, capsys):
-    settings = config_for(tmp_path, entries=entry_for(Path("/Users/vincent/Music/Losy Tracks/Gone.mp3")))
+    settings = config_for(tmp_path, entries=entry_for(Path("/Music/Losy Tracks/Gone.mp3")))
     before = settings.collection.read_bytes()
 
     assert cli.main(["--config", str(config_file(tmp_path, settings)), "apply"]) == 0

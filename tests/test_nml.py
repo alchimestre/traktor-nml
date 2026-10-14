@@ -39,25 +39,25 @@ def entries_of(text: str) -> list[str]:
 
 
 def test_a_path_survives_the_escaping_traktor_uses():
-    """Read off the real collection: `/` is `/:` and a literal `:` is `//`. One of his entries is written
+    """Read off the real collection: `/` is `/:` and a literal `:` is `//`. One entry is written
     `Le Piarre // Pica Pica Molinièra.mp3` while the file on disk carries the colon and the entry's own TITLE
     spells it `:`, and all 24 of Traktor's backups agree — so the two directions have to be exact inverses, or
     a repoint onto such a name is a path the app cannot follow."""
     for name in ["Jacques Puech - Le Piarre : Pica Pica Molinièra.mp3",
                  "Ø [Phase] - Edge Runner (Dub Edit).aiff",
                  "ΑΓΓΕΛΟΣ - Ωδή 4.aiff",
-                 "/Users/vincent/Music/Losy Tracks/plain.mp3"]:
+                 "/Music/Losy Tracks/plain.mp3"]:
         assert nml.decode(nml.encode(name)) == name
-    assert nml.encode("/Users/vincent/Music/Losy Tracks/plain.mp3") == \
-        "/:Users/:vincent/:Music/:Losy Tracks/:plain.mp3"
+    assert nml.encode("/Music/Losy Tracks/plain.mp3") == \
+        "/:Music/:Losy Tracks/:plain.mp3"
     assert nml.encode("a:b") == "a//b"
     assert nml.encode("a/b") == "a/:b"
 
 
 def test_a_path_splits_into_the_dir_and_the_file_traktor_writes():
-    path = Path("/Users/vincent/Music/Losy Tracks/Jacques Puech - Le Piarre : Pica Pica Molinièra.mp3")
+    path = Path("/Music/Losy Tracks/Jacques Puech - Le Piarre : Pica Pica Molinièra.mp3")
     assert nml.split(path) == (
-        "/:Users/:vincent/:Music/:Losy Tracks/:",
+        "/:Music/:Losy Tracks/:",
         "Jacques Puech - Le Piarre // Pica Pica Molinièra.mp3",
     )
 

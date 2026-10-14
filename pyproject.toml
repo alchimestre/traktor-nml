@@ -2,18 +2,20 @@
 name = "traktor-nml"
 version = "0.1.0"
 description = "Reconcile a Traktor collection.nml against the files it is meant to hold"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.13"
 # mutagen reads a length and a bitrate straight from a header, in about a millisecond, which is what makes
-# walking 1,600 files per run cheap enough to do every time. mcp is the official SDK: the server is written
-# against its v2 names (`MCPServer`), and v1 called the same class `FastMCP`, so the major is pinned.
+# walking 1,600 files per run cheap enough to do every time.
 dependencies = [
     "mutagen",
-    "mcp>=2.3,<3",
 ]
 
 [project.scripts]
 traktor-nml = "traktor_nml.cli:main"
-traktor-nml-mcp = "traktor_nml.server:main"
+
+[project.urls]
+Repository = "https://github.com/alchimestre/traktor-nml"
 
 [build-system]
 requires = ["hatchling"]

@@ -14,8 +14,9 @@ traktor-nml apply      # one backup, one write, entries repointed and added
 traktor-nml purge      # the entries whose file is gone, out — dry run until --apply
 ```
 
-A session can do the same over MCP (`traktor-nml-mcp`): the tools are `plan`, `status`, `apply` and `purge`
-(the last one dry unless its `apply` argument is true), and each returns the text the command line prints.
+The same four verbs are served over MCP by its own project,
+[`traktor-mcp`](https://github.com/alchimestre/traktor-mcp) — `plan`, `status`, `apply` and `purge` (the last
+one dry unless its `apply` argument is true) — each returning the text the command line prints.
 
 ## What it decides, per entry
 
@@ -27,9 +28,8 @@ A session can do the same over MCP (`traktor-nml-mcp`): the tools are `plan`, `s
 | **gone** | the file is not there and nothing replaced it. Reported by `plan`/`apply`, which never remove anything; `purge` is the verb that takes it out, dry run first |
 
 `apply` never removes an entry; `purge` is the one verb that does, and it says what each removal costs before it
-writes — a playlist line moved to the entry that keeps the track, or dropped when nothing does. Vincent's word,
-2026-10-13: *there is no detached drive*, so an entry pointing at nothing is residue rather than something that
-might come back.
+writes — a playlist line moved to the entry that keeps the track, or dropped when nothing does. An entry pointing
+at nothing is residue rather than something that might come back: a collection is an index of files that exist.
 
 A repointed entry keeps everything the app stored about the **track** — cues, play count, last played, import
 date, artwork, the album, and its playlist membership — and gives up what described the old file's **audio**:
@@ -48,7 +48,7 @@ the tracks in exactly that state.
 
 Every rule here is read off the file rather than out of a specification, and each carries its evidence:
 
-- **The escaping.** `/` is written `/:` and a literal `:` is written `//`. One of Vincent's entries is
+- **The escaping.** `/` is written `/:` and a literal `:` is written `//`. One entry in a real collection is
   `Le Piarre // Pica Pica Molinièra.mp3` in its LOCATION while the file on disk carries the colon, and all 24 of
   Traktor's own backups agree. Both directions round-trip over every LOCATION in the collection.
 - **The layout.** Traktor writes every element paired and never self-closed, and an entry opens on the same line
@@ -64,8 +64,8 @@ Every rule here is read off the file rather than out of a specification, and eac
 A lane file that is not readable audio at all, and a file whose **name contains U+FEFF**: Traktor rewrote
 `Kimia Koochakzadeh-Yazdi - \ufeffĀVĀR (feat. Anahita Azimi).m4a` as `… - ?ĀVĀR ….m4a` in its own rewrite at
 2026-10-13 16:33, so an entry pointing at it cannot survive one quit of the app. Writing it again would be
-undone every time, so both are reported with what to do — and the fix for the second is his: rename the file.
-(The U+06DD in another of his names came through the same rewrite verbatim, which is why the rule names the one
+undone every time, so both are reported with what to do — and the fix for the second is a rename.
+(The U+06DD in one file's name came through the same rewrite verbatim, which is why the rule names the one
 character there is evidence for rather than a Unicode category.)
 
 ## Configuration
@@ -76,18 +76,10 @@ number), the two lanes, and music-agent's job state. Nothing in it is a secret. 
 ## Development
 
 ```sh
-uv run pytest          # 36 tests; the two that need a real collection skip without one
+uv run pytest          # 39 tests; the two that need a real collection skip without one
 uv run traktor-nml     # against the live collection, read-only
 ```
 
-The MCP server is written against the SDK's v2 names (`mcp.server.mcpserver.MCPServer`, v1's `FastMCP`), which
-is why the dependency is pinned below 3. It is mounted in `~/.omp/agent/mcp.json` as `traktor`:
-
-```json
-"traktor": {
-  "type": "stdio",
-  "command": "/opt/homebrew/bin/uv",
-  "args": ["run", "traktor-nml-mcp"],
-  "cwd": "/Users/vincent/projects/traktor-nml"
-}
-```
+**The MCP surface is its own project**, [`traktor-mcp`](https://github.com/alchimestre/traktor-mcp): it imports
+this library and serves the same four verbs over stdio. This package is the command line and the library under
+it.
