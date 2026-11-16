@@ -40,6 +40,9 @@ date, artwork, the album, its playlist membership — and gives up what describe
 `AUDIO_ID`, `TEMPO`, `LOUDNESS`, `MUSICAL_KEY`, the auto grid, and the `FLAGS` that says "analyzed". Check
 Consistency → Analyze in the app measures them again from the file the entry now points at.
 
+Added and repointed entries take Genre from the file. A blank file genre clears a replacement's old Genre.
+Kept entries are unchanged; reload tags in Traktor after retagging their files.
+
 ## Before it writes
 
 1. Close Traktor. It rewrites the collection on exit, over anything written while it was up; `apply` refuses

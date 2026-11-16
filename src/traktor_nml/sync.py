@@ -250,7 +250,8 @@ def released(value: str) -> str:
 
 
 def _tag_fields(info: ET.Element, written: Tags) -> None:
-    """The tag-derived fields on an INFO, filled in only when the file carries them."""
+    """The file's genre replaces the old value; other tag fields only change when present."""
+    info.attrib.pop("GENRE", None)
     for name, value in (("GENRE", written.genre), ("LABEL", written.label),
                         ("RELEASE_DATE", released(written.year))):
         if value:
