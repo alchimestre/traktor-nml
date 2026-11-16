@@ -7,8 +7,11 @@ same three calls with a different mouth.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
+import tomllib
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 from . import config as config_module
 from . import nml, sync
@@ -30,8 +33,26 @@ def _build_parser() -> argparse.ArgumentParser:
     pure = commands.add_parser(
         "purge", help="take out the entries whose file is gone (dry run unless --apply is given)")
     pure.add_argument("--apply", action="store_true", help="write it; without this nothing is removed")
+    verify = commands.add_parser("verify", help="check exact collection membership without writing")
+    verify.add_argument("--json", action="store_true", help="print the machine-readable result")
+    verify.add_argument("paths", nargs="+", type=Path, help="files to check")
     return parser
 
+
+
+def _verify(config: config_module.Config, args: argparse.Namespace) -> int:
+    _text, _root, entries = nml.read(config.collection)
+    present: dict[str, bool] = {}
+    locations = {nml.location(entry).resolve() for entry in entries}
+    for requested in args.paths:
+        path = requested.resolve()
+        present[str(path)] = path.is_file() and path in locations
+    if args.json:
+        print(json.dumps({"collection": str(config.collection.resolve()), "paths": present}))
+    else:
+        for path, exists in present.items():
+            print(f"{path}: {'present' if exists else 'missing'}")
+    return 0
 
 def _describe(found: sync.Plan) -> None:
     print(f"the collection at {found.where}")
@@ -84,22 +105,23 @@ def _purge(config: config_module.Config, args: argparse.Namespace) -> int:
     print("the History files are untouched")
     return 0
 
-
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
-    config = config_module.load(args.config)
     try:
+        config = config_module.load(args.config)
         if args.command == "status":
             return _status(config)
         if args.command == "purge":
             return _purge(config, args)
         if args.command == "apply":
             return _apply(config, args)
+        if args.command == "verify":
+            return _verify(config, args)
         return _plan(config)
-    except (nml.CollectionMissing, nml.TraktorRunning, nml.Changed) as error:
+    except (nml.CollectionMissing, nml.TraktorRunning, nml.Changed, ET.ParseError,
+            OSError, UnicodeError, tomllib.TOMLDecodeError) as error:
         print(error, file=sys.stderr)
         return 1
-
 
 if __name__ == "__main__":
     sys.exit(main())

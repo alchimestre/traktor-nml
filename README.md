@@ -12,9 +12,14 @@ traktor-nml            # what it would do, writing nothing — the default verb
 traktor-nml status     # one paragraph: entries, lanes, and what a run would do
 traktor-nml apply      # one backup, one write, entries repointed and added
 traktor-nml purge      # the entries whose file is gone, out — dry run until --apply
+traktor-nml verify --json "/path/to/track.mp3"  # exact collection presence, without writing
 ```
 
-The same four verbs are served over MCP by [`traktor-mcp`](https://github.com/alchimestre/traktor-mcp):
+`verify` accepts one or more paths and reports whether each exact file exists and is already in the
+collection. It reads the collection without requiring Traktor to be closed. `--json` prints the collection
+path and a map of resolved requested paths to booleans; without it, each path is printed as present or missing.
+
+The same four reconciliation verbs are served over MCP by [`traktor-mcp`](https://github.com/alchimestre/traktor-mcp):
 `plan`, `status`, `apply` and `purge` (the last one dry unless its `apply` argument is true), each returning
 the text the command line prints.
 

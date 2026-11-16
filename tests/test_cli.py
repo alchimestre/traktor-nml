@@ -56,7 +56,8 @@ def test_the_default_verb_writes_nothing(tmp_path, capsys):
     assert settings.collection.read_bytes() == before
 
 
-def test_apply_writes_it_and_names_the_backup(tmp_path, capsys):
+def test_apply_writes_it_and_names_the_backup(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(sync.nml, "running", lambda: False)
     was = lane(tmp_path, "Kiasmas - Blurred.mp3", where="lossy")
     settings = config_for(tmp_path, entries=entry_for(was),
                           run=(was, lane(tmp_path, "Kiasmas - Blurred.aiff")))
@@ -102,3 +103,50 @@ def test_the_help_says_what_the_verbs_are(capsys):
     printed = capsys.readouterr().out
     for verb in ("plan", "status", "apply"):
         assert verb in printed
+
+
+def test_verify_json_reports_existing_collection_paths_without_writing(tmp_path, capsys):
+    present = tmp_path / "outside the lanes" / "Track Name.mp3"
+    present.parent.mkdir()
+    present.write_bytes(b"audio")
+    missing_membership = tmp_path / "lossless" / "not in collection.mp3"
+    missing_membership.parent.mkdir()
+    missing_membership.write_bytes(b"audio")
+    missing_file = tmp_path / "outside the lanes" / "gone.mp3"
+    settings = config_for(tmp_path, entries=entry_for(present) + entry_for(missing_file))
+    before = settings.collection.read_bytes()
+    requested = [present, missing_membership, missing_file]
+
+    assert cli.main(["--config", str(config_file(tmp_path, settings)), "verify", "--json",
+                     *(str(path) for path in requested)]) == 0
+
+    assert json.loads(capsys.readouterr().out) == {
+        "collection": str(settings.collection.resolve()),
+        "paths": {
+            str(present.resolve()): True,
+            str(missing_membership.resolve()): False,
+            str(missing_file.resolve()): False,
+        },
+    }
+    assert settings.collection.read_bytes() == before
+    assert not list(tmp_path.glob("collection.nml.*.backup"))
+
+
+def test_verify_json_rejects_a_malformed_collection(tmp_path, capsys):
+    settings = config_for(tmp_path, entries="")
+    settings.collection.write_text("<NML>", encoding="utf-8")
+
+    assert cli.main(["--config", str(config_file(tmp_path, settings)), "verify", "--json",
+                     str(tmp_path / "track.mp3")]) == 1
+    assert capsys.readouterr().err
+
+
+def test_verify_json_works_while_traktor_is_running(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(sync.nml, "running", lambda: True)
+    present = tmp_path / "Track Name.mp3"
+    present.write_bytes(b"audio")
+    settings = config_for(tmp_path, entries=entry_for(present))
+
+    assert cli.main(["--config", str(config_file(tmp_path, settings)), "verify", "--json",
+                     str(present)]) == 0
+    assert json.loads(capsys.readouterr().out)["paths"][str(present.resolve())] is True

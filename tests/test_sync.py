@@ -17,6 +17,12 @@ from audio_files import aiff, mp4
 from traktor_nml import config as config_module
 from traktor_nml import files, nml, sync
 
+
+@pytest.fixture(autouse=True)
+def _temporary_collections_ignore_host_traktor(monkeypatch):
+    monkeypatch.setattr(nml, "running", lambda: False)
+
+
 VOLUME = "Macintosh HD"
 
 # What Traktor writes for one file, copied from the real collection's own layout: the app writes every element
