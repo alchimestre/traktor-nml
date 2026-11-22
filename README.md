@@ -76,3 +76,14 @@ the two lanes, and music-agent's job state. `--config` reads another file. No se
 uv run pytest          # 39 tests; the two that need a real collection skip without one
 uv run traktor-nml     # against the live collection, read-only
 ```
+
+## Publishing
+
+1. Configure a PyPI Trusted Publisher for this GitHub repository, workflow `publish.yml`, environment `pypi`.
+2. Dispatch the workflow from `main` with the release tag or commit SHA as `ref`:
+
+   ```sh
+   gh workflow run publish.yml --repo alchimestre/traktor-nml --ref main -f ref=v0.1.0
+   ```
+
+3. Check the workflow result before announcing the release. Published PyPI versions cannot be overwritten.
