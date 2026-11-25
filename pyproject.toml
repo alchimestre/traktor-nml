@@ -1,6 +1,6 @@
 [project]
 name = "traktor-nml"
-version = "0.1.0"
+version = "0.2.0"
 description = "Reconcile a Traktor collection.nml against the files it is meant to hold"
 readme = "README.md"
 license = "MIT"
