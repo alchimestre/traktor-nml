@@ -57,7 +57,8 @@ def _verify(config: config_module.Config, args: argparse.Namespace) -> int:
 def _describe(found: sync.Plan) -> None:
     print(f"the collection at {found.where}")
     print(f"  {found.total} entries · {found.kept} whose file is there · "
-          f"{len(found.repoints)} to repoint · {len(found.additions)} to add")
+          f"{len(found.repoints)} to repoint · {len(found.additions)} to add · "
+          f"{len(found.regenres)} genre to refresh")
     for line in found.lines():
         print(f"  {line}")
     print()

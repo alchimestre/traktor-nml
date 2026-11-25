@@ -330,6 +330,30 @@ def test_a_replacement_genre_supersedes_stale_collection_metadata(tmp_path, genr
     assert [cue.get("TYPE") for cue in saved.findall("CUE_V2")] == ["0"]
 
 
+@pytest.mark.parametrize(("tagged", "shown"), [("Techno", "Techno"), ("", "Electronic")])
+def test_a_kept_entry_takes_a_changed_file_genre_and_nothing_else(tmp_path, tagged, shown):
+    from mutagen.aiff import AIFF
+    from mutagen.id3 import TCON
+
+    path = lane(tmp_path, "Kiasmas - Blurred.aiff")
+    entry = entry_for(path, playcount="7").replace("<INFO ", '<INFO GENRE="Electronic" ')
+    config = setup(tmp_path, entries=entry)
+    moved(tmp_path, path.name)
+    if tagged:
+        audio = AIFF(path)
+        audio.add_tags()
+        audio.tags.add(TCON(encoding=3, text=[tagged]))
+        audio.save()
+
+    sync.run(config, apply=True)
+
+    saved = parsed(config.collection)[0]
+    assert saved.find("INFO").get("GENRE") == shown
+    assert saved.find("INFO").get("PLAYCOUNT") == "7"
+    assert saved.get("AUDIO_ID") == "AIAAAA==", "the analysis of an unchanged file stays"
+    assert not sync.plan(config).writes(), "and a second pass reads it as settled"
+
+
 def test_a_repoint_moves_the_playlist_entry_with_it(tmp_path):
     """A playlist references a track by volume and path, so without this the track drops out of every playlist
     that held it — which is why the pipeline chose a repoint over a delete in the first place."""

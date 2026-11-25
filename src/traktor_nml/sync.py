@@ -1,10 +1,11 @@
 """The reconciliation itself: what every entry is owed, and the one write that settles it.
 
-The decision per entry is deliberately narrow. An entry whose file is there is never touched. An entry whose
-file is gone is either **repointed** at the file that replaced it, or reported — as a duplicate the collection
-holds elsewhere, or as a file that is not there and was not replaced. A file in a lane that no entry points at
-is **added**. Nothing is ever removed: a file that is not there may be a detached drive, and an entry that is
-gone is cheaper to look at than to lose.
+The decision per entry is deliberately narrow. An entry whose file is there keeps everything but its genre,
+which follows the file's genre tag when that tag says something else. An entry whose file is gone is either
+**repointed** at the file that replaced it, or reported — as a duplicate the collection holds elsewhere, or as
+a file that is not there and was not replaced. A file in a lane that no entry points at is **added**. Nothing
+is ever removed: a file that is not there may be a detached drive, and an entry that is gone is cheaper to
+look at than to lose.
 """
 
 from __future__ import annotations
@@ -61,6 +62,15 @@ class Gone:
 
 
 @dataclass
+class Regenre:
+    """One entry whose file is there and now carries a different genre tag than the collection shows."""
+
+    entry: ET.Element
+    path: Path
+    genre: str
+
+
+@dataclass
 class Plan:
     """What reconciling the collection against the lanes comes to, before anything is written.
 
@@ -79,6 +89,7 @@ class Plan:
     kept: int = 0
     repoints: list[Repoint] = field(default_factory=list)
     additions: list[Path] = field(default_factory=list)
+    regenres: list[Regenre] = field(default_factory=list)
     superseded: list[Gone] = field(default_factory=list)
     missing: list[Gone] = field(default_factory=list)
     # Lane files this tool will not write an entry for, with the reason: not readable audio at all, or a name
@@ -89,11 +100,11 @@ class Plan:
         return self.superseded + self.missing
 
     def writes(self) -> int:
-        return len(self.repoints) + len(self.additions)
+        return len(self.repoints) + len(self.additions) + len(self.regenres)
 
     def report(self) -> str:
         parts = [f"{len(self.repoints)} repointed", f"{len(self.additions)} added",
-                 f"{self.kept} left alone"]
+                 f"{len(self.regenres)} genre refreshed", f"{self.kept} left alone"]
         if self.gone():
             parts.append(f"{len(self.gone())} whose file is gone")
         if self.unsupported:
@@ -108,6 +119,9 @@ class Plan:
             out.append(f"    ->   {repoint.now.name}   ({repoint.why})")
         for path in self.additions:
             out.append(f"add      {path.name}")
+        for regenre in self.regenres:
+            out.append(f"genre    {regenre.path.name} — {regenre.entry.find('INFO').get('GENRE', '')!r} -> "
+                       f"{regenre.genre!r}")
         for one in self.gone():
             out.append(f"gone     {one.was.name} — {one.why}")
         for path, why in self.unsupported:
@@ -209,6 +223,25 @@ def plan(config: Config) -> Plan:
             found.missing.append(Gone(was, f"{OUTSIDE} — {short(was.parent)}"))
 
     found.additions = sorted(spare.values())
+    found.regenres = regenres(entries, files, unsupported)
+    return found
+
+
+def regenres(entries: list[ET.Element], files: list[Path], unsupported: set[str]) -> list[Regenre]:
+    """Entries in a lane whose file's genre tag is set and differs from the collection's GENRE.
+
+    A blank file genre leaves the collection's value alone: a file that says nothing is not news.
+    """
+    in_lane = {path_key(path): path for path in files if path_key(path) not in unsupported}
+    found: list[Regenre] = []
+    for entry in entries:
+        path = in_lane.get(path_key(location(entry)))
+        info = entry.find("INFO")
+        if path is None or info is None:
+            continue
+        genre = tags_of(path).genre
+        if genre and info.get("GENRE", "") != genre:
+            found.append(Regenre(entry=entry, path=path, genre=genre))
     return found
 
 
@@ -340,6 +373,12 @@ def write(found: Plan, *, backup: bool = True) -> Path | None:
                 f"{where} is not the collection that was read: {repoint.was.name} is not in it")
         repoint_entry(repoint.entry, repoint.now, tags_of(repoint.now), when)
         edits.append((where_at[0], where_at[1], nml.entry_text(repoint.entry)))
+    for regenre in found.regenres:
+        where_at = spans.get(id(regenre.entry))
+        if where_at is None:
+            raise nml.Changed(f"{where} is not the collection that was read: {regenre.path.name} is not in it")
+        regenre.entry.find("INFO").set("GENRE", regenre.genre)
+        edits.append((where_at[0], where_at[1], nml.entry_text(regenre.entry)))
     for start, end, replacement in sorted(edits, reverse=True):
         text = text[:start] + replacement + text[end:]
 
@@ -382,6 +421,7 @@ def status(config: Config) -> str:
         f"{found.where}\n"
         f"{found.total} entries · {found.kept} whose file is there · {len(lane(config))} files in the lanes\n"
         f"{len(found.repoints)} to repoint · {len(found.additions)} to add · "
+        f"{len(found.regenres)} genre to refresh · "
         f"{len(found.superseded)} duplicate · {len(found.missing)} missing · "
         f"{len(found.unsupported)} it cannot place · {len(removals(config))} to purge"
     )

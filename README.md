@@ -41,7 +41,8 @@ date, artwork, the album, its playlist membership — and gives up what describe
 Consistency → Analyze in the app measures them again from the file the entry now points at.
 
 Added and repointed entries take Genre from the file. A blank file genre clears a replacement's old Genre.
-Kept entries are unchanged; reload tags in Traktor after retagging their files.
+An entry whose file is there takes the file's genre when the file carries a different one; a blank file genre
+leaves it alone.
 
 ## Before it writes
 
